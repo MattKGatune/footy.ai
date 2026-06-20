@@ -1,2 +1,5 @@
 .env
 .DS_Store
+.ipynb_checkpoints/
+statsbomb.db
+statsbomb.db.wal
