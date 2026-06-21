@@ -1,4 +1,5 @@
 import os
+import threading
 import duckdb
 from dotenv import load_dotenv
 
@@ -37,5 +38,31 @@ con.execute(f"""
 """)
 
 
+_lock = threading.Lock()
+
+
 def query(sql: str) -> list[dict]:
-    return con.execute(sql).df().to_dict(orient="records")
+    with _lock:
+        result = con.execute(sql)
+        if result is None:
+            return []
+        df = result.df()
+        if df is None:
+            return []
+        return df.to_dict(orient="records")
+
+
+def _build_valid_match_ids() -> set[int]:
+    print("Building valid match ID index from R2...")
+    result = con.execute("""
+        SELECT DISTINCT match_id
+        FROM events_r2
+        WHERE type_name = 'Shot'
+        AND competition_id != 11
+    """)
+    ids = set(result.df()["match_id"].tolist())
+    print(f"Found {len(ids)} matches with shot data.")
+    return ids
+
+
+VALID_MATCH_IDS: set[int] = _build_valid_match_ids()

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter
-from api.db import query
+from fastapi import APIRouter, HTTPException
+from api.db import query, VALID_MATCH_IDS
 from api.models import xg_model, xg_feature_cols
 from api.cache import cached
 
@@ -37,6 +37,8 @@ def _predict_xg(shots: pd.DataFrame) -> pd.DataFrame:
 @router.get("/{match_id}/shots")
 @cached(lambda match_id: f"shots:{match_id}")
 def get_shots(match_id: int):
+    if match_id not in VALID_MATCH_IDS:
+        raise HTTPException(status_code=404, detail="Match not found")
     rows = query(f"""
         SELECT
             location_x, location_y,

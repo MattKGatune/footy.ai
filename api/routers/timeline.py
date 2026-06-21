@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter
-from api.db import query
+from fastapi import APIRouter, HTTPException
+from api.db import query, VALID_MATCH_IDS
 from api.models import xg_model, xg_feature_cols, wp_model
 from api.cache import cached
 from api.routers.shots import BOOL_COLS, CAT_COLS, _predict_xg
@@ -18,6 +18,8 @@ WP_FEATURES = [
 @router.get("/{match_id}/timeline")
 @cached(lambda match_id: f"timeline:{match_id}")
 def get_timeline(match_id: int):
+    if match_id not in VALID_MATCH_IDS:
+        raise HTTPException(status_code=404, detail="Match not found")
     rows = query(f"""
         SELECT
             e.location_x, e.location_y,

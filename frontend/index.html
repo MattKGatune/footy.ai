@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>footy.ai</title>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f1117;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1a2e;
+      border-bottom: 1px solid #2a2a4a;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+
+    header span {
+      color: #6c63ff;
+    }
+
+    .controls {
+      padding: 24px 32px 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    select {
+      background: #1e1e2e;
+      color: #e0e0e0;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      min-width: 200px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    select:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    select:focus { border-color: #6c63ff; }
+
+    .controls label {
+      font-size: 0.75rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .loading {
+      color: #6c63ff;
+      font-size: 0.85rem;
+      display: none;
+    }
+
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      padding: 24px 32px;
+    }
+
+    .card {
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .card h2 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+    }
+
+    .placeholder {
+      height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #444;
+      font-size: 0.9rem;
+    }
+
+    #shot-map, #win-prob { height: 420px; }
+
+    .match-info {
+      padding: 0 32px 8px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #fff;
+      min-height: 28px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>footy<span>.ai</span></h1>
+</header>
+
+<div class="controls">
+  <div class="control-group">
+    <label for="comp-select">Competition</label>
+    <select id="comp-select">
+      <option value="">Select competition...</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label for="home-select">Home team</label>
+    <select id="home-select" disabled>
+      <option value="">Select home team...</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label for="away-select">Away team</label>
+    <select id="away-select" disabled>
+      <option value="">Select away team...</option>
+    </select>
+  </div>
+  <span class="loading" id="loading">Loading...</span>
+</div>
+
+<div class="match-info" id="match-info"></div>
+
+<div class="charts">
+  <div class="card">
+    <h2>Shot Map</h2>
+    <div id="shot-map"><div class="placeholder">Select a match to view shots</div></div>
+  </div>
+  <div class="card">
+    <h2>Win Probability Timeline</h2>
+    <div id="win-prob"><div class="placeholder">Select a match to view win probability</div></div>
+  </div>
+</div>
+
+<script>
+  const API = "http://127.0.0.1:8000";
+  const COLORS = ["#6c63ff", "#e63946", "#f4a261", "#2ec4b6", "#ff9f1c"];
+  const BG = "#1a1a2e";
+  const PLOT_BG = "#12122a";
+
+  let allMatches = [];
+
+  async function loadMatches() {
+    const res = await fetch(`${API}/matches`);
+    allMatches = await res.json();
+
+    const competitions = [...new Map(
+      allMatches.map(m => [m.competition_name, m.competition_name])
+    ).entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+    const compSel = document.getElementById("comp-select");
+    competitions.forEach(([name]) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      compSel.appendChild(opt);
+    });
+  }
+
+  function onCompChange() {
+    const comp = document.getElementById("comp-select").value;
+    const homeSel = document.getElementById("home-select");
+    const awaySel = document.getElementById("away-select");
+
+    homeSel.innerHTML = '<option value="">Select home team...</option>';
+    awaySel.innerHTML = '<option value="">Select away team...</option>';
+    awaySel.disabled = true;
+    document.getElementById("match-info").textContent = "";
+
+    if (!comp) { homeSel.disabled = true; return; }
+
+    const teams = [...new Set(
+      allMatches.filter(m => m.competition_name === comp).map(m => m.home_team)
+    )].sort();
+
+    teams.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = t;
+      homeSel.appendChild(opt);
+    });
+    homeSel.disabled = false;
+  }
+
+  function onHomeChange() {
+    const comp = document.getElementById("comp-select").value;
+    const home = document.getElementById("home-select").value;
+    const awaySel = document.getElementById("away-select");
+
+    awaySel.innerHTML = '<option value="">Select away team...</option>';
+    document.getElementById("match-info").textContent = "";
+
+    if (!home) { awaySel.disabled = true; return; }
+
+    const teams = [...new Set(
+      allMatches
+        .filter(m => m.competition_name === comp && m.home_team === home)
+        .map(m => m.away_team)
+    )].sort();
+
+    teams.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = t;
+      awaySel.appendChild(opt);
+    });
+    awaySel.disabled = false;
+  }
+
+  function onAwayChange() {
+    const comp = document.getElementById("comp-select").value;
+    const home = document.getElementById("home-select").value;
+    const away = document.getElementById("away-select").value;
+    if (!away) return;
+
+    // sorted DESC by match_id from the server — first result is the most recent
+    const match = allMatches.find(m =>
+      m.competition_name === comp && m.home_team === home && m.away_team === away
+    );
+    if (match) loadMatch(match.match_id);
+  }
+
+  async function loadMatch(matchId) {
+    const loading = document.getElementById("loading");
+    loading.style.display = "inline";
+
+    try {
+      const [shotsRes, timelineRes] = await Promise.all([
+        fetch(`${API}/matches/${matchId}/shots`),
+        fetch(`${API}/matches/${matchId}/timeline`)
+      ]);
+
+      if (!shotsRes.ok || !timelineRes.ok) {
+        console.error("API error", shotsRes.status, timelineRes.status);
+        loading.style.display = "none";
+        return;
+      }
+
+      const shots    = await shotsRes.json();
+      const timeline = await timelineRes.json();
+
+      loading.style.display = "none";
+
+      if (!shots.length || !timeline.length) return;
+
+    const homeTeam = timeline[0].home_team;
+    const awayTeam = timeline[0].away_team;
+
+    document.getElementById("match-info").textContent =
+      `${homeTeam} vs ${awayTeam}`;
+
+      renderShotMap(shots, homeTeam, awayTeam);
+      renderTimeline(timeline, homeTeam, awayTeam);
+    } catch (err) {
+      console.error("Failed to load match:", err);
+      loading.style.display = "none";
+    }
+  }
+
+  function renderShotMap(shots, homeTeam, awayTeam) {
+    const teamColors = { [homeTeam]: "#6c63ff", [awayTeam]: "#e63946" };
+    const teams = [...new Set(shots.map(s => s.team_name))];
+
+    const traces = teams.map(team => {
+      const ts = shots.filter(s => s.team_name === team).map(s => {
+        // mirror away team to attack right
+        const x = team === awayTeam ? 120 - s.location_x : s.location_x;
+        const y = team === awayTeam ? 80  - s.location_y : s.location_y;
+        return { ...s, px: x, py: y };
+      });
+
+      return {
+        x: ts.map(s => s.px),
+        y: ts.map(s => s.py),
+        mode: "markers",
+        name: team,
+        marker: {
+          size: ts.map(s => (s.xg_pred || 0.05) * 60 + 6),
+          color: teamColors[team],
+          symbol: ts.map(s => s.shot_outcome === "Goal" ? "star" : "circle"),
+          line: { color: "white", width: 1 },
+          opacity: 0.85
+        },
+        text: ts.map(s =>
+          `${s.player_name}<br>Min ${s.minute}<br>xG: ${(s.xg_pred||0).toFixed(2)}<br>${s.shot_outcome}`
+        ),
+        hoverinfo: "text",
+        type: "scatter"
+      };
+    });
+
+    const pitchShapes = [
+      rect(0, 0, 120, 80),
+      rect(102, 18, 120, 62),
+      rect(0, 18, 18, 62),
+      rect(114, 30, 120, 50),
+      rect(0, 30, 6, 50),
+      line(60, 0, 60, 80),
+      { type: "circle", x0: 50, y0: 30, x1: 70, y1: 50, line: { color: "rgba(255,255,255,0.5)", width: 1 } },
+      rect(120, 36, 122, 44),
+      rect(-2, 36, 0, 44),
+    ];
+
+    Plotly.newPlot("shot-map", traces, {
+      shapes: pitchShapes,
+      plot_bgcolor: "#2d6a2d",
+      paper_bgcolor: BG,
+      font: { color: "#fff" },
+      xaxis: { range: [-5, 125], showgrid: false, zeroline: false, visible: false },
+      yaxis: { range: [-5, 85], showgrid: false, zeroline: false, visible: false, scaleanchor: "x", scaleratio: 1 },
+      legend: { bgcolor: "rgba(0,0,0,0.5)", font: { size: 11 } },
+      margin: { t: 8, b: 8, l: 8, r: 8 },
+      height: 420
+    }, { responsive: true });
+  }
+
+  function renderTimeline(timeline, homeTeam, awayTeam) {
+    const goals = timeline.filter(t => t.shot_outcome === "Goal");
+
+    const shapes = goals.map(g => ({
+      type: "line",
+      x0: g.minute, x1: g.minute, y0: 0, y1: 1,
+      line: {
+        color: g.is_home ? "#6c63ff" : "#e63946",
+        width: 1.5,
+        dash: "dash"
+      }
+    }));
+
+    const annotations = goals.map(g => ({
+      x: g.minute,
+      y: g.is_home ? 0.95 : 0.05,
+      text: `${g.is_home ? homeTeam.split(" ").pop() : awayTeam.split(" ").pop()} ${g.home_goals}-${g.away_goals}`,
+      showarrow: false,
+      font: { color: g.is_home ? "#6c63ff" : "#e63946", size: 10 },
+      xanchor: "left"
+    }));
+
+    const traces = [
+      {
+        x: timeline.map(t => t.minute),
+        y: timeline.map(t => t.p_home_win),
+        mode: "lines", name: homeTeam,
+        line: { color: "#6c63ff", width: 2.5 }
+      },
+      {
+        x: timeline.map(t => t.minute),
+        y: timeline.map(t => t.p_draw),
+        mode: "lines", name: "Draw",
+        line: { color: "#888", width: 1.5, dash: "dot" }
+      },
+      {
+        x: timeline.map(t => t.minute),
+        y: timeline.map(t => t.p_away_win),
+        mode: "lines", name: awayTeam,
+        line: { color: "#e63946", width: 2.5 }
+      }
+    ];
+
+    Plotly.newPlot("win-prob", traces, {
+      shapes,
+      annotations,
+      plot_bgcolor: PLOT_BG,
+      paper_bgcolor: BG,
+      font: { color: "#fff" },
+      xaxis: { title: "Minute", gridcolor: "#2a2a4a", zeroline: false },
+      yaxis: { title: "Win Probability", tickformat: ".0%", range: [0, 1], gridcolor: "#2a2a4a", zeroline: false },
+      legend: { bgcolor: "rgba(0,0,0,0.5)", font: { size: 11 } },
+      margin: { t: 8, b: 40, l: 56, r: 8 },
+      height: 420
+    }, { responsive: true });
+  }
+
+  function rect(x0, y0, x1, y1) {
+    return { type: "rect", x0, y0, x1, y1, line: { color: "rgba(255,255,255,0.5)", width: 1 } };
+  }
+
+  function line(x0, y0, x1, y1) {
+    return { type: "line", x0, y0, x1, y1, line: { color: "rgba(255,255,255,0.5)", width: 1 } };
+  }
+
+  document.getElementById("comp-select").addEventListener("change", onCompChange);
+  document.getElementById("home-select").addEventListener("change", onHomeChange);
+  document.getElementById("away-select").addEventListener("change", onAwayChange);
+
+  loadMatches();
+</script>
+</body>
+</html>
