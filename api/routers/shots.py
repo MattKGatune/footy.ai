@@ -41,17 +41,19 @@ def get_shots(match_id: int):
         raise HTTPException(status_code=404, detail="Match not found")
     rows = query(f"""
         SELECT
-            location_x, location_y,
-            shot_body_part, shot_type, shot_technique,
-            shot_first_time, shot_aerial_won, shot_one_on_one,
-            shot_open_goal, under_pressure,
-            shot_outcome, shot_statsbomb_xg,
-            player_name, team_name, minute
-        FROM events_r2
-        WHERE type_name = 'Shot'
-        AND shot_type != 'Penalty'
-        AND match_id = {match_id}
-        AND competition_id != 11
+            e.location_x, e.location_y,
+            e.shot_body_part, e.shot_type, e.shot_technique,
+            e.shot_first_time, e.shot_aerial_won, e.shot_one_on_one,
+            e.shot_open_goal, e.under_pressure,
+            e.shot_outcome, e.shot_statsbomb_xg,
+            e.player_name, e.team_name, e.minute,
+            (e.team_id = m.home_team_id) AS is_home
+        FROM events_r2 e
+        JOIN matches_r2 m ON e.match_id = m.match_id
+        WHERE e.type_name = 'Shot'
+        AND e.shot_type != 'Penalty'
+        AND e.match_id = {match_id}
+        AND e.competition_id != 11
     """)
 
     if not rows:

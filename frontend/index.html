@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>footy.ai</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚽</text></svg>">
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -291,16 +292,15 @@
   }
 
   function renderShotMap(shots, homeTeam, awayTeam) {
-    const teamColors = { [homeTeam]: "#6c63ff", [awayTeam]: "#e63946" };
     const teams = [...new Set(shots.map(s => s.team_name))];
 
     const traces = teams.map(team => {
       const ts = shots.filter(s => s.team_name === team).map(s => {
-        // mirror away team to attack right
-        const x = team === awayTeam ? 120 - s.location_x : s.location_x;
-        const y = team === awayTeam ? 80  - s.location_y : s.location_y;
+        const x = s.is_home ? s.location_x : 120 - s.location_x;
+        const y = s.is_home ? s.location_y : 80  - s.location_y;
         return { ...s, px: x, py: y };
       });
+      const isHome = ts[0]?.is_home ?? true;
 
       return {
         x: ts.map(s => s.px),
@@ -309,7 +309,7 @@
         name: team,
         marker: {
           size: ts.map(s => (s.xg_pred || 0.05) * 60 + 6),
-          color: teamColors[team],
+          color: isHome ? "#6c63ff" : "#e63946",
           symbol: ts.map(s => s.shot_outcome === "Goal" ? "star" : "circle"),
           line: { color: "white", width: 1 },
           opacity: 0.85
