@@ -3,3 +3,5 @@
 .ipynb_checkpoints/
 statsbomb.db
 statsbomb.db.wal
+__pycache__/
+*.pyc
