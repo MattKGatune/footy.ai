@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from api.routers import matches, shots, timeline
+from api.routers import matches, narrative, shots, timeline
 from api.cache import REDIS_AVAILABLE
 
 app = FastAPI(title="footy.ai", version="0.1.0")
@@ -18,6 +18,7 @@ app.add_middleware(
 app.include_router(matches.router)
 app.include_router(shots.router)
 app.include_router(timeline.router)
+app.include_router(narrative.router)
 
 frontend = Path(__file__).parent.parent / "frontend"
 if (frontend / "index.html").exists():

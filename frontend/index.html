@@ -16,32 +16,44 @@
       min-height: 100vh;
     }
 
+    /* ── Header ─────────────────────────────────── */
     header {
       background: #1a1a2e;
       border-bottom: 1px solid #2a2a4a;
-      padding: 16px 32px;
+      padding: 14px 32px;
       display: flex;
       align-items: center;
-      gap: 16px;
     }
 
     header h1 {
-      font-size: 1.4rem;
+      font-size: 1.3rem;
       font-weight: 700;
       color: #fff;
       letter-spacing: -0.5px;
     }
 
-    header span {
-      color: #6c63ff;
+    header h1 span { color: #6c63ff; }
+
+    /* ── Controls ────────────────────────────────── */
+    .controls {
+      padding: 20px 32px 12px;
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
-    .controls {
-      padding: 24px 32px 8px;
+    .control-group {
       display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .control-group label {
+      font-size: 0.7rem;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
     }
 
     select {
@@ -50,43 +62,75 @@
       border: 1px solid #2a2a4a;
       border-radius: 6px;
       padding: 8px 12px;
-      font-size: 0.9rem;
+      font-size: 0.875rem;
       min-width: 200px;
       cursor: pointer;
       outline: none;
-    }
-
-    select:disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
+      transition: border-color 0.15s;
     }
 
     select:focus { border-color: #6c63ff; }
-
-    .controls label {
-      font-size: 0.75rem;
-      color: #666;
-      text-transform: uppercase;
-      letter-spacing: 0.6px;
-    }
-
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+    select:disabled { opacity: 0.35; cursor: not-allowed; }
 
     .loading {
       color: #6c63ff;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
+      padding-bottom: 10px;
       display: none;
     }
 
+    /* ── Scoreboard ──────────────────────────────── */
+    .scoreboard {
+      margin: 4px 32px 0;
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 20px 32px;
+      display: none;
+    }
+
+    .scoreboard-inner {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .sb-team {
+      font-size: 1.25rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    .sb-team.home { color: #6c63ff; text-align: right; }
+    .sb-team.away { color: #e63946; text-align: left; }
+
+    .sb-center { text-align: center; }
+
+    .sb-score {
+      font-size: 2.8rem;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 6px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    .sb-meta {
+      margin-top: 6px;
+      font-size: 0.7rem;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    /* ── Charts ──────────────────────────────────── */
     .charts {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 24px;
-      padding: 24px 32px;
+      gap: 20px;
+      padding: 20px 32px 0;
     }
 
     .card {
@@ -97,31 +141,186 @@
     }
 
     .card h2 {
-      font-size: 0.85rem;
+      font-size: 0.7rem;
       font-weight: 600;
-      color: #888;
+      color: #555;
       text-transform: uppercase;
       letter-spacing: 0.8px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .placeholder {
-      height: 400px;
+      height: 380px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #444;
-      font-size: 0.9rem;
+      color: #333;
+      font-size: 0.85rem;
     }
 
-    #shot-map, #win-prob { height: 420px; }
+    #shot-map, #win-prob { height: 400px; }
 
-    .match-info {
-      padding: 0 32px 8px;
-      font-size: 1.1rem;
+    /* ── Stats Table ─────────────────────────────── */
+    .stats-section {
+      padding: 20px 32px 32px;
+      display: none;
+    }
+
+    .stats-section .card { padding: 20px 24px; }
+
+    .stats-header {
+      display: grid;
+      grid-template-columns: 90px 1fr 90px;
+      gap: 12px;
+      padding-bottom: 10px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid #2a2a4a;
+    }
+
+    .stats-header .sh-home {
+      color: #6c63ff;
+      font-size: 0.75rem;
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-align: right;
+    }
+
+    .stats-header .sh-away {
+      color: #e63946;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: 90px 1fr 90px;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #151525;
+    }
+
+    .stat-val {
+      font-size: 1.05rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-val.home { color: #6c63ff; text-align: right; }
+    .stat-val.away { color: #e63946; }
+
+    .stat-mid {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .stat-label {
+      font-size: 0.68rem;
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-bar {
+      display: flex;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      overflow: hidden;
+      background: #0f1117;
+    }
+
+    .bar-home { background: #6c63ff; height: 100%; }
+    .bar-away { background: #e63946; height: 100%; }
+
+    /* ── Narrative ───────────────────────────────── */
+    .narrative-section {
+      padding: 0 32px 40px;
+      display: none;
+    }
+
+    .narrative-section .card { padding: 20px 24px; }
+
+    .narrative-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .narrative-header h2 {
+      margin-bottom: 0;
+    }
+
+    #narrative-btn {
+      background: #6c63ff;
       color: #fff;
-      min-height: 28px;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      transition: background 0.15s;
+    }
+
+    #narrative-btn:hover { background: #574fd6; }
+    #narrative-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+    .narrative-summary {
+      color: #ccc;
+      font-size: 0.9rem;
+      line-height: 1.65;
+      margin-bottom: 18px;
+    }
+
+    .narrative-moments {
+      list-style: none;
+      margin-bottom: 18px;
+    }
+
+    .narrative-moments li {
+      padding: 6px 0 6px 18px;
+      position: relative;
+      font-size: 0.85rem;
+      color: #bbb;
+      border-bottom: 1px solid #151525;
+      line-height: 1.5;
+    }
+
+    .narrative-moments li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: #6c63ff;
+    }
+
+    .narrative-tactical {
+      font-size: 0.85rem;
+      color: #999;
+      font-style: italic;
+      line-height: 1.6;
+      border-left: 2px solid #6c63ff;
+      padding-left: 12px;
+    }
+
+    .narrative-loading {
+      color: #555;
+      font-size: 0.85rem;
+      padding: 20px 0;
+      text-align: center;
+    }
+
+    .narrative-error {
+      color: #e63946;
+      font-size: 0.85rem;
+      padding: 12px 0;
     }
   </style>
 </head>
@@ -153,7 +352,16 @@
   <span class="loading" id="loading">Loading...</span>
 </div>
 
-<div class="match-info" id="match-info"></div>
+<div class="scoreboard" id="scoreboard">
+  <div class="scoreboard-inner">
+    <div class="sb-team home" id="sb-home"></div>
+    <div class="sb-center">
+      <div class="sb-score" id="sb-score"></div>
+      <div class="sb-meta" id="sb-meta"></div>
+    </div>
+    <div class="sb-team away" id="sb-away"></div>
+  </div>
+</div>
 
 <div class="charts">
   <div class="card">
@@ -161,18 +369,37 @@
     <div id="shot-map"><div class="placeholder">Select a match to view shots</div></div>
   </div>
   <div class="card">
-    <h2>Win Probability Timeline</h2>
+    <h2>Win Probability</h2>
     <div id="win-prob"><div class="placeholder">Select a match to view win probability</div></div>
+  </div>
+</div>
+
+<div class="stats-section" id="stats-section">
+  <div class="card">
+    <h2>Match Stats</h2>
+    <div id="stats-table"></div>
+  </div>
+</div>
+
+<div class="narrative-section" id="narrative-section">
+  <div class="card">
+    <div class="narrative-header">
+      <h2>Match Analysis</h2>
+      <button id="narrative-btn">Generate AI Analysis</button>
+    </div>
+    <div id="narrative-content"></div>
   </div>
 </div>
 
 <script>
   const API = "http://127.0.0.1:8000";
-  const COLORS = ["#6c63ff", "#e63946", "#f4a261", "#2ec4b6", "#ff9f1c"];
-  const BG = "#1a1a2e";
+  const BG  = "#1a1a2e";
   const PLOT_BG = "#12122a";
 
   let allMatches = [];
+  let currentMatchId = null;
+
+  /* ── Data loading ──────────────────────────────── */
 
   async function loadMatches() {
     const res = await fetch(`${API}/matches`);
@@ -199,7 +426,7 @@
     homeSel.innerHTML = '<option value="">Select home team...</option>';
     awaySel.innerHTML = '<option value="">Select away team...</option>';
     awaySel.disabled = true;
-    document.getElementById("match-info").textContent = "";
+    hideMatch();
 
     if (!comp) { homeSel.disabled = true; return; }
 
@@ -209,8 +436,7 @@
 
     teams.forEach(t => {
       const opt = document.createElement("option");
-      opt.value = t;
-      opt.textContent = t;
+      opt.value = t; opt.textContent = t;
       homeSel.appendChild(opt);
     });
     homeSel.disabled = false;
@@ -222,7 +448,7 @@
     const awaySel = document.getElementById("away-select");
 
     awaySel.innerHTML = '<option value="">Select away team...</option>';
-    document.getElementById("match-info").textContent = "";
+    hideMatch();
 
     if (!home) { awaySel.disabled = true; return; }
 
@@ -234,8 +460,7 @@
 
     teams.forEach(t => {
       const opt = document.createElement("option");
-      opt.value = t;
-      opt.textContent = t;
+      opt.value = t; opt.textContent = t;
       awaySel.appendChild(opt);
     });
     awaySel.disabled = false;
@@ -247,21 +472,31 @@
     const away = document.getElementById("away-select").value;
     if (!away) return;
 
-    // sorted DESC by match_id from the server — first result is the most recent
     const match = allMatches.find(m =>
       m.competition_name === comp && m.home_team === home && m.away_team === away
     );
-    if (match) loadMatch(match.match_id);
+    if (match) loadMatch(match);
   }
 
-  async function loadMatch(matchId) {
+  function hideMatch() {
+    currentMatchId = null;
+    document.getElementById("scoreboard").style.display = "none";
+    document.getElementById("stats-section").style.display = "none";
+    document.getElementById("narrative-section").style.display = "none";
+    document.getElementById("narrative-content").innerHTML = "";
+    const btn = document.getElementById("narrative-btn");
+    btn.disabled = false;
+    btn.textContent = "Generate AI Analysis";
+  }
+
+  async function loadMatch(meta) {
     const loading = document.getElementById("loading");
     loading.style.display = "inline";
 
     try {
       const [shotsRes, timelineRes] = await Promise.all([
-        fetch(`${API}/matches/${matchId}/shots`),
-        fetch(`${API}/matches/${matchId}/timeline`)
+        fetch(`${API}/matches/${meta.match_id}/shots`),
+        fetch(`${API}/matches/${meta.match_id}/timeline`)
       ]);
 
       if (!shotsRes.ok || !timelineRes.ok) {
@@ -272,24 +507,43 @@
 
       const shots    = await shotsRes.json();
       const timeline = await timelineRes.json();
-
       loading.style.display = "none";
 
       if (!shots.length || !timeline.length) return;
 
-    const homeTeam = timeline[0].home_team;
-    const awayTeam = timeline[0].away_team;
+      const homeTeam = timeline[0].home_team;
+      const awayTeam = timeline[0].away_team;
 
-    document.getElementById("match-info").textContent =
-      `${homeTeam} vs ${awayTeam}`;
-
+      currentMatchId = meta.match_id;
+      renderScoreboard(meta, homeTeam, awayTeam);
       renderShotMap(shots, homeTeam, awayTeam);
       renderTimeline(timeline, homeTeam, awayTeam);
+      renderStatsTable(shots, homeTeam, awayTeam);
+      document.getElementById("narrative-section").style.display = "block";
+
     } catch (err) {
       console.error("Failed to load match:", err);
       loading.style.display = "none";
     }
   }
+
+  /* ── Scoreboard ────────────────────────────────── */
+
+  function renderScoreboard(meta, homeTeam, awayTeam) {
+    document.getElementById("sb-home").textContent  = homeTeam;
+    document.getElementById("sb-away").textContent  = awayTeam;
+    document.getElementById("sb-score").textContent = `${meta.home_score} — ${meta.away_score}`;
+
+    const date = meta.match_date
+      ? new Date(meta.match_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+      : "";
+    document.getElementById("sb-meta").textContent =
+      [meta.competition_name, date].filter(Boolean).join("  ·  ");
+
+    document.getElementById("scoreboard").style.display = "block";
+  }
+
+  /* ── Shot Map ──────────────────────────────────── */
 
   function renderShotMap(shots, homeTeam, awayTeam) {
     const teams = [...new Set(shots.map(s => s.team_name))];
@@ -343,9 +597,11 @@
       yaxis: { range: [-5, 85], showgrid: false, zeroline: false, visible: false, scaleanchor: "x", scaleratio: 1 },
       legend: { bgcolor: "rgba(0,0,0,0.5)", font: { size: 11 } },
       margin: { t: 8, b: 8, l: 8, r: 8 },
-      height: 420
+      height: 400
     }, { responsive: true });
   }
+
+  /* ── Win Probability Timeline ──────────────────── */
 
   function renderTimeline(timeline, homeTeam, awayTeam) {
     const goals = timeline.filter(t => t.shot_outcome === "Goal");
@@ -353,11 +609,7 @@
     const shapes = goals.map(g => ({
       type: "line",
       x0: g.minute, x1: g.minute, y0: 0, y1: 1,
-      line: {
-        color: g.is_home ? "#6c63ff" : "#e63946",
-        width: 1.5,
-        dash: "dash"
-      }
+      line: { color: g.is_home ? "#6c63ff" : "#e63946", width: 1.5, dash: "dash" }
     }));
 
     const annotations = goals.map(g => ({
@@ -369,7 +621,7 @@
       xanchor: "left"
     }));
 
-    const traces = [
+    Plotly.newPlot("win-prob", [
       {
         x: timeline.map(t => t.minute),
         y: timeline.map(t => t.p_home_win),
@@ -388,9 +640,7 @@
         mode: "lines", name: awayTeam,
         line: { color: "#e63946", width: 2.5 }
       }
-    ];
-
-    Plotly.newPlot("win-prob", traces, {
+    ], {
       shapes,
       annotations,
       plot_bgcolor: PLOT_BG,
@@ -400,9 +650,94 @@
       yaxis: { title: "Win Probability", tickformat: ".0%", range: [0, 1], gridcolor: "#2a2a4a", zeroline: false },
       legend: { bgcolor: "rgba(0,0,0,0.5)", font: { size: 11 } },
       margin: { t: 8, b: 40, l: 56, r: 8 },
-      height: 420
+      height: 400
     }, { responsive: true });
   }
+
+  /* ── Stats Table ───────────────────────────────── */
+
+  function renderStatsTable(shots, homeTeam, awayTeam) {
+    const h = shots.filter(s => s.is_home);
+    const a = shots.filter(s => !s.is_home);
+
+    const hXg  = h.reduce((s, sh) => s + (sh.xg_pred || 0), 0);
+    const aXg  = a.reduce((s, sh) => s + (sh.xg_pred || 0), 0);
+
+    const rows = [
+      { label: "Shots",        hv: h.length,                                                              av: a.length,                                                              fmt: v => v },
+      { label: "On Target",    hv: h.filter(s => ["Goal","Saved"].includes(s.shot_outcome)).length,       av: a.filter(s => ["Goal","Saved"].includes(s.shot_outcome)).length,       fmt: v => v },
+      { label: "xG",           hv: hXg,                                                                   av: aXg,                                                                   fmt: v => v.toFixed(2) },
+      { label: "xG / Shot",    hv: h.length ? hXg / h.length : 0,                                        av: a.length ? aXg / a.length : 0,                                        fmt: v => v.toFixed(3) },
+    ];
+
+    const el = document.getElementById("stats-table");
+    el.innerHTML = `
+      <div class="stats-header">
+        <span class="sh-home">${homeTeam}</span>
+        <span></span>
+        <span class="sh-away">${awayTeam}</span>
+      </div>
+      ${rows.map(row => {
+        const total = (row.hv + row.av) || 1;
+        const hp = (row.hv / total * 100).toFixed(1);
+        const ap = (100 - hp).toFixed(1);
+        return `
+          <div class="stat-row">
+            <span class="stat-val home">${row.fmt(row.hv)}</span>
+            <div class="stat-mid">
+              <div class="stat-bar">
+                <div class="bar-home" style="width:${hp}%"></div>
+                <div class="bar-away" style="width:${ap}%"></div>
+              </div>
+              <span class="stat-label">${row.label}</span>
+            </div>
+            <span class="stat-val away">${row.fmt(row.av)}</span>
+          </div>`;
+      }).join("")}
+    `;
+
+    document.getElementById("stats-section").style.display = "block";
+  }
+
+  /* ── Narrative ─────────────────────────────────── */
+
+  async function fetchNarrative() {
+    if (!currentMatchId) return;
+    const btn = document.getElementById("narrative-btn");
+    const content = document.getElementById("narrative-content");
+
+    btn.disabled = true;
+    btn.textContent = "Generating...";
+    content.innerHTML = `<div class="narrative-loading">Analysing match data with Claude...</div>`;
+
+    try {
+      const res = await fetch(`${API}/matches/${currentMatchId}/narrative`);
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const data = await res.json();
+      renderNarrative(data);
+      btn.textContent = "Regenerate";
+      btn.disabled = false;
+    } catch (err) {
+      content.innerHTML = `<div class="narrative-error">Failed to generate analysis: ${err.message}</div>`;
+      btn.textContent = "Retry";
+      btn.disabled = false;
+    }
+  }
+
+  function renderNarrative(data) {
+    const n = data.narrative;
+    const moments = n.key_moments
+      .map(m => `<li>${m}</li>`)
+      .join("");
+
+    document.getElementById("narrative-content").innerHTML = `
+      <p class="narrative-summary">${n.summary}</p>
+      <ul class="narrative-moments">${moments}</ul>
+      <p class="narrative-tactical">${n.tactical_note}</p>
+    `;
+  }
+
+  /* ── Pitch helpers ─────────────────────────────── */
 
   function rect(x0, y0, x1, y1) {
     return { type: "rect", x0, y0, x1, y1, line: { color: "rgba(255,255,255,0.5)", width: 1 } };
@@ -412,9 +747,12 @@
     return { type: "line", x0, y0, x1, y1, line: { color: "rgba(255,255,255,0.5)", width: 1 } };
   }
 
+  /* ── Event listeners ───────────────────────────── */
+
   document.getElementById("comp-select").addEventListener("change", onCompChange);
   document.getElementById("home-select").addEventListener("change", onHomeChange);
   document.getElementById("away-select").addEventListener("change", onAwayChange);
+  document.getElementById("narrative-btn").addEventListener("click", fetchNarrative);
 
   loadMatches();
 </script>
