@@ -43,8 +43,10 @@ valid_matches — one row per match
 
 IMPORTANT — competitions with event data in valid_events:
   Premier League, Ligue 1, Serie A, UEFA Europa League,
-  Major League Soccer, UEFA Euro, Liga Profesional
-  (La Liga, Bundesliga, Champions League, World Cup etc. have NO event rows)
+  Major League Soccer, UEFA Euro, Liga Profesional,
+  La Liga, 1. Bundesliga, Champions League, FIFA World Cup,
+  Copa America, Copa del Rey, African Cup of Nations,
+  Indian Super League, FIFA U20 World Cup, North American League
 
 Rules:
 - Query ONLY valid_events and valid_matches. Never reference events_r2 or matches_r2.

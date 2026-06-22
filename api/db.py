@@ -68,7 +68,6 @@ def _build_valid_match_ids() -> set[int]:
         SELECT DISTINCT match_id
         FROM events_r2
         WHERE type_name = 'Shot'
-        AND competition_id != 11
     """)
     ids = set(result.df()["match_id"].tolist())
     print(f"Found {len(ids)} matches with shot data.")
