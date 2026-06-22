@@ -322,6 +322,135 @@
       font-size: 0.85rem;
       padding: 12px 0;
     }
+
+    /* ── Chat ────────────────────────────────────── */
+    .chat-section {
+      padding: 0 32px 48px;
+    }
+
+    .chat-section .card { padding: 20px 24px; }
+
+    .chat-input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    #chat-input {
+      flex: 1;
+      background: #0f1117;
+      color: #e0e0e0;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 9px 14px;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #chat-input:focus { border-color: #6c63ff; }
+
+    #chat-btn {
+      background: #6c63ff;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+
+    #chat-btn:hover { background: #574fd6; }
+    #chat-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+    .chat-explanation {
+      font-size: 0.85rem;
+      color: #999;
+      margin-bottom: 12px;
+    }
+
+    .chat-sql {
+      background: #0f1117;
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.78rem;
+      color: #8b9aff;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-bottom: 14px;
+    }
+
+    .chat-results {
+      overflow-x: auto;
+    }
+
+    .chat-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .chat-table th {
+      text-align: left;
+      padding: 6px 12px;
+      color: #555;
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #2a2a4a;
+    }
+
+    .chat-table td {
+      padding: 7px 12px;
+      color: #ccc;
+      border-bottom: 1px solid #151525;
+    }
+
+    .chat-table tr:last-child td { border-bottom: none; }
+
+    .chat-row-count {
+      font-size: 0.72rem;
+      color: #555;
+      margin-top: 10px;
+    }
+
+    .chat-error {
+      color: #e63946;
+      font-size: 0.85rem;
+      padding: 8px 0;
+    }
+
+    .chat-loading {
+      color: #555;
+      font-size: 0.85rem;
+      padding: 16px 0;
+      text-align: center;
+    }
+
+    .chat-examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .chat-pill {
+      background: #1e1e2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      color: #888;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .chat-pill:hover { border-color: #6c63ff; color: #c0bdff; }
   </style>
 </head>
 <body>
@@ -388,6 +517,23 @@
       <button id="narrative-btn">Generate AI Analysis</button>
     </div>
     <div id="narrative-content"></div>
+  </div>
+</div>
+
+<div class="chat-section">
+  <div class="card">
+    <h2 style="margin-bottom:14px">Ask the Data</h2>
+    <div class="chat-examples" id="chat-examples">
+      <span class="chat-pill">Top 10 players by xG in the Premier League</span>
+      <span class="chat-pill">Who scored the most goals in Ligue 1?</span>
+      <span class="chat-pill">Which teams averaged the most shots in Serie A?</span>
+      <span class="chat-pill">Most assists in UEFA Euro</span>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="chat-input" placeholder="Ask anything about the data..." />
+      <button id="chat-btn">Ask</button>
+    </div>
+    <div id="chat-result"></div>
   </div>
 </div>
 
@@ -747,12 +893,90 @@
     return { type: "line", x0, y0, x1, y1, line: { color: "rgba(255,255,255,0.5)", width: 1 } };
   }
 
+  /* ── Chat ──────────────────────────────────────── */
+
+  async function submitChat(question) {
+    if (!question.trim()) return;
+    const btn = document.getElementById("chat-btn");
+    const result = document.getElementById("chat-result");
+
+    btn.disabled = true;
+    result.innerHTML = `<div class="chat-loading">Generating SQL...</div>`;
+
+    try {
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const data = await res.json();
+      renderChatResult(data);
+    } catch (err) {
+      result.innerHTML = `<div class="chat-error">Request failed: ${err.message}</div>`;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderChatResult(data) {
+    const result = document.getElementById("chat-result");
+
+    if (data.error) {
+      result.innerHTML = `
+        <p class="chat-explanation">${data.explanation}</p>
+        <div class="chat-sql">${data.sql}</div>
+        <div class="chat-error">SQL error: ${data.error}</div>
+      `;
+      return;
+    }
+
+    if (!data.results.length) {
+      result.innerHTML = `
+        <p class="chat-explanation">${data.explanation}</p>
+        <div class="chat-sql">${data.sql}</div>
+        <p class="chat-row-count">No rows returned.</p>
+      `;
+      return;
+    }
+
+    const cols = Object.keys(data.results[0]);
+    const headerHtml = cols.map(c => `<th>${c}</th>`).join("");
+    const rowsHtml = data.results.map(row =>
+      `<tr>${cols.map(c => `<td>${row[c] ?? ""}</td>`).join("")}</tr>`
+    ).join("");
+
+    result.innerHTML = `
+      <p class="chat-explanation">${data.explanation}</p>
+      <div class="chat-sql">${data.sql}</div>
+      <div class="chat-results">
+        <table class="chat-table">
+          <thead><tr>${headerHtml}</tr></thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <p class="chat-row-count">${data.row_count} row${data.row_count !== 1 ? "s" : ""}</p>
+    `;
+  }
+
   /* ── Event listeners ───────────────────────────── */
 
   document.getElementById("comp-select").addEventListener("change", onCompChange);
   document.getElementById("home-select").addEventListener("change", onHomeChange);
   document.getElementById("away-select").addEventListener("change", onAwayChange);
   document.getElementById("narrative-btn").addEventListener("click", fetchNarrative);
+
+  document.getElementById("chat-btn").addEventListener("click", () => {
+    submitChat(document.getElementById("chat-input").value);
+  });
+  document.getElementById("chat-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") submitChat(e.target.value);
+  });
+  document.querySelectorAll(".chat-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.getElementById("chat-input").value = pill.textContent;
+      submitChat(pill.textContent);
+    });
+  });
 
   loadMatches();
 </script>

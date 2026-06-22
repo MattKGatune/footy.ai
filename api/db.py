@@ -37,6 +37,16 @@ con.execute(f"""
         hive_partitioning=true, union_by_name=true)
 """)
 
+con.execute("""
+    CREATE OR REPLACE VIEW valid_events AS
+    SELECT * FROM events_r2
+""")
+
+con.execute("""
+    CREATE OR REPLACE VIEW valid_matches AS
+    SELECT * FROM matches_r2
+""")
+
 
 _lock = threading.Lock()
 
