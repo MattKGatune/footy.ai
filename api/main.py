@@ -25,6 +25,10 @@ frontend = Path(__file__).parent.parent / "frontend"
 if (frontend / "index.html").exists():
     app.mount("/ui", StaticFiles(directory=str(frontend), html=True), name="frontend")
 
+client_dist = Path(__file__).parent.parent / "client" / "dist"
+if (client_dist / "index.html").exists():
+    app.mount("/", StaticFiles(directory=str(client_dist), html=True), name="client")
+
 
 @app.get("/health")
 def health():
