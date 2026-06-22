@@ -16,7 +16,8 @@ def list_matches():
             home_score,
             away_score,
             competition_id,
-            competition_name
+            competition_name,
+            match_date
         FROM matches_r2
         ORDER BY match_id DESC
     """)

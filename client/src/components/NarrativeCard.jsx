@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { fetchNarrative } from '../api'
 
 export default function NarrativeCard({ matchId }) {
-  const [state, setState] = useState('idle') // idle | loading | done | error
+  const [state, setState] = useState('idle')
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
 
@@ -18,44 +18,52 @@ export default function NarrativeCard({ matchId }) {
     }
   }
 
-  const btnLabel = state === 'loading' ? 'Generating...' : state === 'done' ? 'Regenerate' : 'Generate AI Analysis'
-  const btnCls = `px-4 py-2 rounded-md text-xs font-semibold tracking-wide transition-colors
+  const btnLabel = state === 'loading' ? 'Generating...' : state === 'done' ? 'Regenerate' : 'Generate Analysis'
+  const btnCls = `px-4 py-1.5 rounded-md text-[0.72rem] font-mono font-bold uppercase tracking-wider transition-colors
     ${state === 'loading'
-      ? 'bg-dim text-muted cursor-not-allowed'
-      : 'bg-accent hover:bg-accent-h text-white cursor-pointer'}`
+      ? 'bg-surface-2 text-text-3 cursor-not-allowed border border-border'
+      : 'bg-transparent border border-home text-home hover:bg-home hover:text-white cursor-pointer'}`
 
   return (
-    <div className="mx-8 mb-5 bg-card border border-border rounded-xl p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[0.7rem] font-semibold text-muted uppercase tracking-[0.8px]">Match Analysis</h2>
+    <div className="mx-8 mb-4 bg-surface border border-border rounded-xl p-6">
+      <div className="flex items-center justify-between mb-5">
+        <span className="text-[0.65rem] font-mono text-text-3 uppercase tracking-[1.5px]">Match Analysis</span>
         <button className={btnCls} onClick={generate} disabled={state === 'loading'}>
           {btnLabel}
         </button>
       </div>
 
+      {state === 'idle' && (
+        <p className="text-[0.8rem] text-text-3 font-mono">
+          Generate an AI-written match report based on xG and shot data.
+        </p>
+      )}
+
       {state === 'loading' && (
-        <p className="text-sm text-muted text-center py-5">Analysing match data with Claude...</p>
+        <p className="text-[0.8rem] text-text-3 font-mono animate-pulse">Analysing with Claude...</p>
       )}
 
       {state === 'error' && (
-        <p className="text-sm text-danger">{error}</p>
+        <p className="text-[0.8rem] text-away">{error}</p>
       )}
 
       {state === 'done' && data && (
-        <>
-          <p className="text-sm text-[#ccc] leading-relaxed mb-4">{data.narrative.summary}</p>
-          <ul className="mb-4 list-none">
+        <div className="space-y-5">
+          <p className="text-[0.9rem] text-text-1 leading-relaxed font-sans">
+            {data.narrative.summary}
+          </p>
+          <div className="border-l-2 border-border pl-4 space-y-2">
             {data.narrative.key_moments.map((m, i) => (
-              <li key={i} className="relative pl-4 py-1.5 text-[0.85rem] text-[#bbb] border-b border-[#151525] leading-snug
-                before:absolute before:left-0 before:text-accent before:content-['•']">
-                {m}
-              </li>
+              <div key={i} className="flex gap-3 text-[0.82rem] text-text-2 leading-snug">
+                <span className="text-data font-mono shrink-0">→</span>
+                <span>{m}</span>
+              </div>
             ))}
-          </ul>
-          <p className="text-[0.85rem] text-[#999] italic leading-relaxed border-l-2 border-accent pl-3">
+          </div>
+          <p className="text-[0.82rem] text-text-2 italic leading-relaxed border-t border-border pt-4">
             {data.narrative.tactical_note}
           </p>
-        </>
+        </div>
       )}
     </div>
   )

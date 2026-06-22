@@ -57,8 +57,8 @@ export default function ShotMap({ shots }) {
 
     Plotly.react(ref.current, traces, {
       shapes: pitchShapes,
-      plot_bgcolor: '#2d6a2d',
-      paper_bgcolor: '#1a1a2e',
+      plot_bgcolor: '#224422',
+      paper_bgcolor: '#0d1520',
       font: { color: '#fff' },
       xaxis: { range: [-5, 125], showgrid: false, zeroline: false, visible: false },
       yaxis: { range: [-5, 85], showgrid: false, zeroline: false, visible: false, scaleanchor: 'x', scaleratio: 1 },
