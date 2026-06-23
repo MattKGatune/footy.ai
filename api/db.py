@@ -62,16 +62,20 @@ def query(sql: str) -> list[dict]:
         return df.to_dict(orient="records")
 
 
-def _build_valid_match_ids() -> set[int]:
+VALID_MATCH_IDS: set[int] = set()
+
+
+def _populate_valid_match_ids() -> None:
     print("Building valid match ID index from R2...")
-    result = con.execute("""
-        SELECT DISTINCT match_id
-        FROM events_r2
-        WHERE type_name = 'Shot'
-    """)
-    ids = set(result.df()["match_id"].tolist())
-    print(f"Found {len(ids)} matches with shot data.")
-    return ids
+    with _lock:
+        result = con.execute("""
+            SELECT DISTINCT match_id
+            FROM events_r2
+            WHERE type_name = 'Shot'
+        """)
+        ids = set(result.df()["match_id"].tolist())
+    VALID_MATCH_IDS.update(ids)
+    print(f"Found {len(VALID_MATCH_IDS)} matches with shot data.")
 
 
-VALID_MATCH_IDS: set[int] = _build_valid_match_ids()
+threading.Thread(target=_populate_valid_match_ids, daemon=True).start()

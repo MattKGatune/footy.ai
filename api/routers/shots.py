@@ -37,7 +37,7 @@ def _predict_xg(shots: pd.DataFrame) -> pd.DataFrame:
 @router.get("/{match_id}/shots")
 @cached(lambda match_id: f"shots:{match_id}")
 def get_shots(match_id: int):
-    if match_id not in VALID_MATCH_IDS:
+    if VALID_MATCH_IDS and match_id not in VALID_MATCH_IDS:
         raise HTTPException(status_code=404, detail="Match not found")
     rows = query(f"""
         SELECT
