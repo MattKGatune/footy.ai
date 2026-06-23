@@ -1,6 +1,7 @@
 import os
 import re
 import pathlib
+import tempfile
 import threading
 from dotenv import load_dotenv
 from fastapi import HTTPException
@@ -15,58 +16,79 @@ bucket     = os.getenv("R2_BUCKET")
 # Extension directory inside the project — persists between Render build and runtime.
 _EXT_DIR = str(pathlib.Path(__file__).parent.parent / ".duckdb_ext")
 
-# Two connections so the slow chat-events view never blocks fast queries.
-# _mcon: matches view + per-match event queries (shots/timeline/narrative). Ready fast.
-# _ccon: full events view for the /chat free-form SQL endpoint. Ready slow (~90s).
+# Local cache for parquet files downloaded from R2 via boto3.
+#
+# Why download instead of letting DuckDB read s3:// directly: DuckDB's httpfs
+# extension is unreliable on Render's network. Its S3 LIST hangs (~114s), and
+# its range-read pattern for large event files also hangs indefinitely — a hung
+# read holds _mlock and exhausts the threadpool, poisoning the whole worker.
+# boto3, by contrast, lists and GETs reliably on Render. So we use boto3 for ALL
+# network I/O and point DuckDB only at local files (no httpfs in the hot path).
+# Files are stored mirroring their S3 key so hive_partitioning still recovers
+# competition_id from the competition_id=XX/ path segment.
+_CACHE_DIR = pathlib.Path(tempfile.gettempdir()) / "footy_cache"
+
 _mcon = None
-_ccon = None
 _mlock = threading.Lock()
-_clock = threading.Lock()
+_dl_lock = threading.Lock()          # serializes on-demand downloads
 
 _matches_ready = threading.Event()   # /matches dropdown
-_events_ready  = threading.Event()   # shots / timeline / narrative
-_chat_ready    = threading.Event()   # /chat
+_events_ready  = threading.Event()   # shots / timeline / narrative (file map + anchor ready)
 
 _init_error: str | None = None
 
-# match_id -> s3 path, built from a boto3 listing (DuckDB's own S3 LIST hangs on Render).
-_event_file_map: dict[int, str] = {}
+# match_id -> S3 key (e.g. "events/competition_id=43/match_123.parquet")
+_event_key_map: dict[int, str] = {}
 
-# World Cup (competition_id=43) file used as a union anchor — it's the only
-# competition with every shot column present. Unioning each match file with it
-# makes columns missing from other competitions (shot_open_goal, shot_aerial_won,
-# shot_one_on_one) resolve to NULL instead of raising a BinderException.
-# DuckDB skips the anchor's row data via row-group stats, so it's nearly free.
+# Local path to the World Cup (competition_id=43) anchor file. It's the only
+# competition with every shot column present. Unioning each match's events with
+# it makes columns missing from other competitions (shot_open_goal,
+# shot_aerial_won, shot_one_on_one) resolve to NULL instead of raising a
+# BinderException. DuckDB skips the anchor's row data via row-group stats.
 _schema_anchor: str | None = None
 
 VALID_MATCH_IDS: set[int] = set()
 
-_R2_SECRET = f"""
-    CREATE OR REPLACE SECRET r2_secret (
-        TYPE S3,
-        KEY_ID '{access_key}',
-        SECRET '{secret_key}',
-        ENDPOINT '{account_id}.r2.cloudflarestorage.com',
-        REGION 'auto',
-        URL_STYLE 'path'
-    );
-"""
 
-
-def _list_r2_files(prefix: str) -> list[str]:
-    """List R2 files via boto3 — avoids DuckDB's S3 LIST which hangs on Render."""
+def _s3_client():
     import boto3
-    s3 = boto3.client(
+    from botocore.config import Config
+    return boto3.client(
         's3',
         endpoint_url=f'https://{account_id}.r2.cloudflarestorage.com',
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         region_name='auto',
+        # Bounded timeouts so a slow/failed transfer raises instead of hanging
+        # the worker (the failure mode that poisoned the threadpool before).
+        config=Config(connect_timeout=10, read_timeout=60,
+                      retries={'max_attempts': 3, 'mode': 'standard'}),
     )
-    files: list[str] = []
+
+
+def _list_keys(prefix: str) -> list[str]:
+    """List object keys under a prefix via boto3 (reliable on Render)."""
+    s3 = _s3_client()
+    keys: list[str] = []
     for page in s3.get_paginator('list_objects_v2').paginate(Bucket=bucket, Prefix=prefix):
-        files += [f"s3://{bucket}/{o['Key']}" for o in page.get('Contents', [])]
-    return files
+        keys += [o['Key'] for o in page.get('Contents', [])]
+    return keys
+
+
+def _download_key(key: str) -> str:
+    """Download an R2 object to the local cache (mirroring its key) and return
+    the local path. No-op if already cached. Atomic via temp file + rename."""
+    dest = _CACHE_DIR / key
+    if dest.exists():
+        return str(dest)
+    with _dl_lock:
+        if dest.exists():                       # re-check inside the lock
+            return str(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dest.with_suffix(dest.suffix + ".tmp")
+        _s3_client().download_file(bucket, key, str(tmp))
+        os.replace(tmp, dest)
+    return str(dest)
 
 
 def _file_list_sql(paths: list[str]) -> str:
@@ -74,16 +96,21 @@ def _file_list_sql(paths: list[str]) -> str:
 
 
 def get_event_expr(match_id: int) -> str | None:
-    """read_parquet expression for one match's events, unioned with the WC anchor.
+    """read_parquet expression over LOCAL files for one match's events, unioned
+    with the WC anchor. Downloads the match's event file on demand.
 
-    Blocks until the event file map is ready. Returns None if the match has no
-    event file (caller should treat as 404 / no data).
+    Blocks until the event map/anchor are ready. Returns None if the match has
+    no event file (caller should treat as 404 / no data).
     """
     _events_ready.wait(timeout=60)
-    path = _event_file_map.get(match_id)
-    if not path or not _schema_anchor:
+    key = _event_key_map.get(match_id)
+    if not key or not _schema_anchor:
         return None
-    fl = _file_list_sql([path, _schema_anchor])
+    try:
+        local_match = _download_key(key)
+    except Exception as e:
+        raise HTTPException(503, detail=f"Failed to fetch event data: {e}")
+    fl = _file_list_sql([local_match, _schema_anchor])
     return f"read_parquet({fl}, hive_partitioning=true, union_by_name=true)"
 
 
@@ -92,86 +119,63 @@ def _make_con(memory_limit: str):
     os.makedirs(_EXT_DIR, exist_ok=True)
     con = duckdb.connect(config={"extension_directory": _EXT_DIR})
     con.execute(f"SET memory_limit='{memory_limit}';")
-    try:
-        con.execute("LOAD httpfs;")
-        print("httpfs loaded from cache.")
-    except Exception:
-        print("httpfs cache miss — installing...")
-        con.execute("INSTALL httpfs; LOAD httpfs;")
-        print("httpfs installed.")
-    con.execute(_R2_SECRET)
     return con
 
 
 def _init():
-    global _mcon, _ccon, _event_file_map, _schema_anchor, _init_error
+    global _mcon, _event_key_map, _schema_anchor, _init_error
     try:
-        # ── Phase 1: matches (~3–5 s) ──────────────────────────────────────
-        print("Listing R2 match files via boto3...")
-        match_files = _list_r2_files('matches/')
-        print(f"Found {len(match_files)} match files.")
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-        _mcon = _make_con("200MB")
+        # ── Phase 1: matches ───────────────────────────────────────────────
+        print("Listing R2 match files via boto3...")
+        match_keys = _list_keys('matches/')
+        print(f"Found {len(match_keys)} match files. Downloading...")
+        local_match_paths = [_download_key(k) for k in match_keys]
+
+        _mcon = _make_con("250MB")
         _mcon.execute(
             f"CREATE OR REPLACE VIEW matches_r2 AS "
-            f"SELECT * FROM read_parquet({_file_list_sql(match_files)}, hive_partitioning=true)"
+            f"SELECT * FROM read_parquet({_file_list_sql(local_match_paths)}, hive_partitioning=true)"
         )
         _matches_ready.set()
         print("Matches ready.")
 
-        # ── Phase 2: event file map (~5 s total from start) ────────────────
+        # ── Phase 2: event key map + anchor ────────────────────────────────
         print("Listing R2 event files via boto3...")
-        event_files = _list_r2_files('events/')
-        print(f"Found {len(event_files)} event files.")
+        event_keys = _list_keys('events/')
+        print(f"Found {len(event_keys)} event files.")
 
-        file_map: dict[int, str] = {}
-        anchor: str | None = None
-        for path in event_files:
-            m = re.search(r'match_(\d+)', path)
+        key_map: dict[int, str] = {}
+        anchor_key: str | None = None
+        for key in event_keys:
+            m = re.search(r'match_(\d+)', key)
             if m:
-                mid = int(m.group(1))
-                file_map[mid] = path
-                if anchor is None and 'competition_id=43/' in path:
-                    anchor = path
+                key_map[int(m.group(1))] = key
+                if anchor_key is None and 'competition_id=43/' in key:
+                    anchor_key = key
 
-        _event_file_map = file_map
-        _schema_anchor  = anchor
+        _event_key_map = key_map
+        if anchor_key:
+            _schema_anchor = _download_key(anchor_key)   # fetch anchor once, up front
         _events_ready.set()
-        print(f"Events map ready. {len(file_map)} matches. Anchor: {anchor}")
-
-        # ── Phase 3: chat connection + full events view (~90 s locally) ────
-        # Explicit file list (no R2 LIST) so it doesn't hang on Render. Built on
-        # a separate connection so this slow scan never blocks _mcon queries.
-        print("Building full events view for chat...")
-        _ccon = _make_con("150MB")
-        _ccon.execute(
-            f"CREATE OR REPLACE VIEW valid_matches AS "
-            f"SELECT * FROM read_parquet({_file_list_sql(match_files)}, hive_partitioning=true)"
-        )
-        _ccon.execute(
-            f"CREATE OR REPLACE VIEW valid_events AS "
-            f"SELECT * FROM read_parquet({_file_list_sql(event_files)}, "
-            f"hive_partitioning=true, union_by_name=true)"
-        )
-        _chat_ready.set()
-        print("Chat ready.")
+        print(f"Events map ready. {len(key_map)} matches. Anchor: {_schema_anchor}")
 
     except Exception as e:
         _init_error = str(e)
         print(f"DB initialization failed: {e}")
         _matches_ready.set()
         _events_ready.set()
-        _chat_ready.set()
 
 
 threading.Thread(target=_init, daemon=True).start()
 
 
 def query(sql: str, wait_for_events: bool = False) -> list[dict]:
-    """Run a query on the fast connection (_mcon).
+    """Run a query on the connection (_mcon).
 
-    wait_for_events=True is kept for callers that need the event file map ready
-    (shots/timeline/narrative build their own read_parquet expr via get_event_expr).
+    wait_for_events=True is for callers that build their own read_parquet expr
+    via get_event_expr (shots/timeline/narrative); it waits for the event map.
     """
     if wait_for_events:
         if not _events_ready.wait(timeout=60):
@@ -198,22 +202,14 @@ def query(sql: str, wait_for_events: bool = False) -> list[dict]:
 
 
 def query_chat(sql: str) -> list[dict]:
-    """Run free-form SQL for /chat on the full-events connection (_ccon)."""
-    if not _chat_ready.wait(timeout=600):
-        raise HTTPException(503, detail="Chat is still warming up, please try again shortly.")
+    """Free-form SQL for /chat.
 
-    if _ccon is None:
-        raise HTTPException(503, detail=f"Chat DB init failed: {_init_error}")
-
-    with _clock:
-        try:
-            result = _ccon.execute(sql)
-        except Exception as e:
-            raise HTTPException(500, detail=str(e))
-
-    if result is None:
-        return []
-    df = result.df()
-    if df is None:
-        return []
-    return df.to_dict(orient="records")
+    Disabled on this deployment: chat needs every event file at once, which would
+    mean DuckDB reading 2651 files over httpfs (hangs on Render) or downloading
+    the entire dataset to disk. Returns 503 rather than hanging the worker.
+    Tracked for a follow-up (e.g. a prebuilt aggregate table).
+    """
+    raise HTTPException(
+        503,
+        detail="The chat feature is temporarily unavailable on this deployment.",
+    )

@@ -37,14 +37,19 @@ def debug():
             ext_files += [os.path.join(root, f) for f in files]
     except Exception:
         pass
+    cached_files = 0
+    try:
+        for _, _, files in os.walk(db._CACHE_DIR):
+            cached_files += len(files)
+    except Exception:
+        pass
     return {
         "mcon_ready": db._mcon is not None,
-        "ccon_ready": db._ccon is not None,
         "matches_event_set": db._matches_ready.is_set(),
         "events_event_set": db._events_ready.is_set(),
-        "chat_event_set": db._chat_ready.is_set(),
-        "event_file_count": len(db._event_file_map),
+        "event_file_count": len(db._event_key_map),
         "schema_anchor": db._schema_anchor,
+        "cached_files": cached_files,
         "init_error": db._init_error,
         "ext_dir": db._EXT_DIR,
         "ext_files": ext_files,
