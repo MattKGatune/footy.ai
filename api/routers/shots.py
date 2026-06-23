@@ -54,7 +54,7 @@ def get_shots(match_id: int):
         AND e.shot_type != 'Penalty'
         AND e.match_id = {match_id}
         AND e.competition_id != 11
-    """)
+    """, wait_for_events=True)
 
     if not rows:
         return []

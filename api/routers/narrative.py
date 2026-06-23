@@ -44,7 +44,7 @@ def get_narrative(match_id: int):
         AND e.match_id = {match_id}
         AND e.competition_id != 11
         ORDER BY e.minute
-    """)
+    """, wait_for_events=True)
 
     if not rows:
         raise HTTPException(status_code=404, detail="No shot data for this match")

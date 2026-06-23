@@ -37,7 +37,7 @@ def get_timeline(match_id: int):
         AND e.match_id = {match_id}
         AND e.competition_id != 11
         ORDER BY e.period, e.minute, e.second
-    """)
+    """, wait_for_events=True)
 
     if not rows:
         return []

@@ -87,7 +87,7 @@ def chat(req: ChatRequest):
         raise HTTPException(status_code=400, detail="Only SELECT queries are allowed")
 
     try:
-        rows = query(sql)
+        rows = query(sql, wait_for_events=True)
     except Exception as e:
         return {
             "sql": sql,

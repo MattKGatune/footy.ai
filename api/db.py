@@ -12,7 +12,8 @@ bucket     = os.getenv("R2_BUCKET")
 
 _con = None
 _lock = threading.Lock()
-_ready = threading.Event()
+_matches_ready = threading.Event()  # set after matches_r2 is ready
+_events_ready  = threading.Event()  # set after events_r2 is ready
 VALID_MATCH_IDS: set[int] = set()
 
 
@@ -33,6 +34,17 @@ def _init():
             );
         """)
 
+        # Phase 1: matches only — no union_by_name, schema is consistent, fast
+        _con.execute(f"""
+            CREATE OR REPLACE VIEW matches_r2 AS
+            SELECT * FROM read_parquet('s3://{bucket}/matches/**/*.parquet',
+                hive_partitioning=true)
+        """)
+        _con.execute("CREATE OR REPLACE VIEW valid_matches AS SELECT * FROM matches_r2")
+        _matches_ready.set()
+        print("Matches ready.")
+
+        # Phase 2: events — union_by_name scans all files, slow
         for attempt in range(5):
             try:
                 _con.execute(f"""
@@ -40,42 +52,38 @@ def _init():
                     SELECT * FROM read_parquet('s3://{bucket}/events/**/*.parquet',
                         hive_partitioning=true, union_by_name=true)
                 """)
-                _con.execute(f"""
-                    CREATE OR REPLACE VIEW matches_r2 AS
-                    SELECT * FROM read_parquet('s3://{bucket}/matches/**/*.parquet',
-                        hive_partitioning=true, union_by_name=true)
-                """)
+                _con.execute("CREATE OR REPLACE VIEW valid_events AS SELECT * FROM events_r2")
+                _events_ready.set()
+                print("Events ready.")
                 break
             except Exception as e:
-                print(f"View creation attempt {attempt + 1} failed: {e}")
+                print(f"Events view attempt {attempt + 1} failed: {e}")
                 if attempt < 4:
                     time.sleep(5 * (attempt + 1))
-                else:
-                    raise
 
-        _con.execute("CREATE OR REPLACE VIEW valid_events AS SELECT * FROM events_r2")
-        _con.execute("CREATE OR REPLACE VIEW valid_matches AS SELECT * FROM matches_r2")
-
-        _ready.set()
-        print("DB initialized.")
-
-        with _lock:
-            result = _con.execute(
-                "SELECT DISTINCT match_id FROM events_r2 WHERE type_name = 'Shot'"
-            )
-            VALID_MATCH_IDS.update(set(result.df()["match_id"].tolist()))
-        print(f"Found {len(VALID_MATCH_IDS)} matches with shot data.")
+        # Build valid match IDs after events are ready
+        if _events_ready.is_set():
+            with _lock:
+                result = _con.execute(
+                    "SELECT DISTINCT match_id FROM events_r2 WHERE type_name = 'Shot'"
+                )
+                VALID_MATCH_IDS.update(set(result.df()["match_id"].tolist()))
+            print(f"Found {len(VALID_MATCH_IDS)} matches with shot data.")
 
     except Exception as e:
         print(f"DB initialization failed: {e}")
-        _ready.set()
+        _matches_ready.set()
+        _events_ready.set()
 
 
 threading.Thread(target=_init, daemon=True).start()
 
 
-def query(sql: str) -> list[dict]:
-    _ready.wait(timeout=180)
+def query(sql: str, wait_for_events: bool = False) -> list[dict]:
+    if wait_for_events:
+        _events_ready.wait(timeout=300)
+    else:
+        _matches_ready.wait(timeout=60)
     with _lock:
         result = _con.execute(sql)
         if result is None:
