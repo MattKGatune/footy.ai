@@ -1,4 +1,5 @@
 import os
+import time
 import threading
 import duckdb
 from dotenv import load_dotenv
@@ -25,17 +26,27 @@ con.execute(f"""
     );
 """)
 
-con.execute(f"""
-    CREATE OR REPLACE VIEW events_r2 AS
-    SELECT * FROM read_parquet('s3://{bucket}/events/**/*.parquet',
-        hive_partitioning=true, union_by_name=true)
-""")
+def _create_views():
+    for attempt in range(5):
+        try:
+            con.execute(f"""
+                CREATE OR REPLACE VIEW events_r2 AS
+                SELECT * FROM read_parquet('s3://{bucket}/events/**/*.parquet',
+                    hive_partitioning=true, union_by_name=true)
+            """)
+            con.execute(f"""
+                CREATE OR REPLACE VIEW matches_r2 AS
+                SELECT * FROM read_parquet('s3://{bucket}/matches/**/*.parquet',
+                    hive_partitioning=true, union_by_name=true)
+            """)
+            return
+        except Exception as e:
+            print(f"View creation attempt {attempt + 1} failed: {e}")
+            if attempt < 4:
+                time.sleep(5 * (attempt + 1))
+    raise RuntimeError("Failed to create R2 views after 5 attempts")
 
-con.execute(f"""
-    CREATE OR REPLACE VIEW matches_r2 AS
-    SELECT * FROM read_parquet('s3://{bucket}/matches/**/*.parquet',
-        hive_partitioning=true, union_by_name=true)
-""")
+_create_views()
 
 con.execute("""
     CREATE OR REPLACE VIEW valid_events AS
