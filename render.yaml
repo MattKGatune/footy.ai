@@ -3,7 +3,7 @@ services:
     name: footy-ai
     env: python
     plan: free
-    pythonVersion: "3.12.4"
+    pythonVersion: "3.12"
     buildCommand: pip install -r requirements.txt && cd client && npm install && npm run build && cd ..
     startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
     envVars:
