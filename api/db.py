@@ -51,16 +51,18 @@ _EVENTS_VIEW = f"""
 """
 
 
-def _make_con(memory_limit: str, single_thread: bool = False):
+def _make_con(memory_limit: str):
     import duckdb
     os.makedirs(_EXT_DIR, exist_ok=True)
     con = duckdb.connect(config={"extension_directory": _EXT_DIR})
-    thread_setting = "SET threads=1;" if single_thread else ""
-    con.execute(f"SET memory_limit='{memory_limit}'; {thread_setting}")
+    con.execute(f"SET memory_limit='{memory_limit}';")
     try:
         con.execute("LOAD httpfs;")
+        print("httpfs loaded from cache.")
     except Exception:
+        print("httpfs cache miss — installing...")
         con.execute("INSTALL httpfs; LOAD httpfs;")
+        print("httpfs installed.")
     con.execute(_R2_SECRET)
     return con
 
@@ -68,8 +70,8 @@ def _make_con(memory_limit: str, single_thread: bool = False):
 def _init():
     global _mcon, _con
     try:
-        # Phase 1: fast matches-only connection (single thread fine, it's small)
-        _mcon = _make_con("80MB", single_thread=True)
+        # Phase 1: matches-only connection
+        _mcon = _make_con("150MB")
         _mcon.execute(_MATCHES_VIEW)
         _matches_ready.set()
         print("Matches ready.")
