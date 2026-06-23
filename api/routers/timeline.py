@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException
-from api.db import query, VALID_MATCH_IDS
+from api.db import query, get_event_expr, VALID_MATCH_IDS
 from api.models import xg_model, xg_feature_cols, wp_model
 from api.cache import cached
 from api.routers.shots import BOOL_COLS, CAT_COLS, _predict_xg
@@ -20,6 +20,9 @@ WP_FEATURES = [
 def get_timeline(match_id: int):
     if VALID_MATCH_IDS and match_id not in VALID_MATCH_IDS:
         raise HTTPException(status_code=404, detail="Match not found")
+    event_expr = get_event_expr(match_id)
+    if event_expr is None:
+        raise HTTPException(status_code=404, detail="No event data for this match")
     rows = query(f"""
         SELECT
             e.location_x, e.location_y,
@@ -31,7 +34,7 @@ def get_timeline(match_id: int):
             m.home_team, m.away_team,
             m.home_team_id, m.away_team_id,
             m.home_score, m.away_score
-        FROM events_r2 e
+        FROM {event_expr} e
         JOIN matches_r2 m ON e.match_id = m.match_id
         WHERE e.type_name = 'Shot'
         AND e.match_id = {match_id}

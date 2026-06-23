@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from api.cache import cached
-from api.db import VALID_MATCH_IDS, query
+from api.db import VALID_MATCH_IDS, query, get_event_expr
 from api.routers.shots import _predict_xg
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -23,8 +23,12 @@ class MatchNarrative(BaseModel):
 @router.get("/{match_id}/narrative")
 @cached(lambda match_id: f"narrative:{match_id}")
 def get_narrative(match_id: int):
-    if match_id not in VALID_MATCH_IDS:
+    if VALID_MATCH_IDS and match_id not in VALID_MATCH_IDS:
         raise HTTPException(status_code=404, detail="Match not found")
+
+    event_expr = get_event_expr(match_id)
+    if event_expr is None:
+        raise HTTPException(status_code=404, detail="No event data for this match")
 
     rows = query(f"""
         SELECT
@@ -37,7 +41,7 @@ def get_narrative(match_id: int):
             m.home_team, m.away_team,
             m.home_score, m.away_score,
             m.competition_name, m.match_date
-        FROM events_r2 e
+        FROM {event_expr} e
         JOIN matches_r2 m ON e.match_id = m.match_id
         WHERE e.type_name = 'Shot'
         AND e.shot_type != 'Penalty'

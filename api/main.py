@@ -29,21 +29,24 @@ def health():
 
 @app.get("/debug")
 def debug():
-    from api.db import _mcon, _con, _matches_ready, _events_ready, _init_error, _EXT_DIR
+    import api.db as db
     import os
     ext_files = []
     try:
-        for root, _, files in os.walk(_EXT_DIR):
+        for root, _, files in os.walk(db._EXT_DIR):
             ext_files += [os.path.join(root, f) for f in files]
     except Exception:
         pass
     return {
-        "mcon_ready": _mcon is not None,
-        "con_ready": _con is not None,
-        "matches_event_set": _matches_ready.is_set(),
-        "events_event_set": _events_ready.is_set(),
-        "init_error": _init_error,
-        "ext_dir": _EXT_DIR,
+        "mcon_ready": db._mcon is not None,
+        "ccon_ready": db._ccon is not None,
+        "matches_event_set": db._matches_ready.is_set(),
+        "events_event_set": db._events_ready.is_set(),
+        "chat_event_set": db._chat_ready.is_set(),
+        "event_file_count": len(db._event_file_map),
+        "schema_anchor": db._schema_anchor,
+        "init_error": db._init_error,
+        "ext_dir": db._EXT_DIR,
         "ext_files": ext_files,
     }
 

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException
-from api.db import query, VALID_MATCH_IDS
+from api.db import query, get_event_expr, VALID_MATCH_IDS
 from api.models import xg_model, xg_feature_cols
 from api.cache import cached
 
@@ -39,6 +39,9 @@ def _predict_xg(shots: pd.DataFrame) -> pd.DataFrame:
 def get_shots(match_id: int):
     if VALID_MATCH_IDS and match_id not in VALID_MATCH_IDS:
         raise HTTPException(status_code=404, detail="Match not found")
+    event_expr = get_event_expr(match_id)
+    if event_expr is None:
+        raise HTTPException(status_code=404, detail="No event data for this match")
     rows = query(f"""
         SELECT
             e.location_x, e.location_y,
@@ -48,7 +51,7 @@ def get_shots(match_id: int):
             e.shot_outcome, e.shot_statsbomb_xg,
             e.player_name, e.team_name, e.minute,
             (e.team_id = m.home_team_id) AS is_home
-        FROM events_r2 e
+        FROM {event_expr} e
         JOIN matches_r2 m ON e.match_id = m.match_id
         WHERE e.type_name = 'Shot'
         AND e.shot_type != 'Penalty'

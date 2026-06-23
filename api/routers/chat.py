@@ -4,7 +4,7 @@ import anthropic
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from api.db import query
+from api.db import query_chat
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
@@ -87,7 +87,7 @@ def chat(req: ChatRequest):
         raise HTTPException(status_code=400, detail="Only SELECT queries are allowed")
 
     try:
-        rows = query(sql, wait_for_events=True)
+        rows = query_chat(sql)
     except Exception as e:
         return {
             "sql": sql,
