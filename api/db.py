@@ -3,6 +3,7 @@ import time
 import pathlib
 import threading
 from dotenv import load_dotenv
+from fastapi import HTTPException
 
 load_dotenv(override=True)
 
@@ -24,6 +25,8 @@ _lock  = threading.Lock()
 
 _matches_ready = threading.Event()
 _events_ready  = threading.Event()
+
+_init_error: str | None = None
 
 VALID_MATCH_IDS: set[int] = set()
 
@@ -68,7 +71,7 @@ def _make_con(memory_limit: str):
 
 
 def _init():
-    global _mcon, _con
+    global _mcon, _con, _init_error
     try:
         # Phase 1: matches-only connection
         _mcon = _make_con("150MB")
@@ -92,6 +95,7 @@ def _init():
                     time.sleep(5 * (attempt + 1))
 
     except Exception as e:
+        _init_error = str(e)
         print(f"DB initialization failed: {e}")
         _matches_ready.set()
         _events_ready.set()
@@ -103,14 +107,24 @@ threading.Thread(target=_init, daemon=True).start()
 def query(sql: str, wait_for_events: bool = False) -> list[dict]:
     if wait_for_events:
         if not _events_ready.wait(timeout=300):
-            return []
+            raise HTTPException(503, detail=f"DB init timed out. Error: {_init_error}")
+        if _con is None:
+            raise HTTPException(503, detail=f"DB init failed: {_init_error}")
         with _lock:
-            result = _con.execute(sql)
+            try:
+                result = _con.execute(sql)
+            except Exception as e:
+                raise HTTPException(500, detail=str(e))
     else:
         if not _matches_ready.wait(timeout=120):
-            return []
+            raise HTTPException(503, detail=f"DB init timed out. Error: {_init_error}")
+        if _mcon is None:
+            raise HTTPException(503, detail=f"DB init failed: {_init_error}")
         with _mlock:
-            result = _mcon.execute(sql)
+            try:
+                result = _mcon.execute(sql)
+            except Exception as e:
+                raise HTTPException(500, detail=str(e))
     if result is None:
         return []
     df = result.df()

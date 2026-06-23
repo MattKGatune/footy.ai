@@ -27,6 +27,27 @@ def health():
     return {"status": "ok", "redis": REDIS_AVAILABLE}
 
 
+@app.get("/debug")
+def debug():
+    from api.db import _mcon, _con, _matches_ready, _events_ready, _init_error, _EXT_DIR
+    import os
+    ext_files = []
+    try:
+        for root, _, files in os.walk(_EXT_DIR):
+            ext_files += [os.path.join(root, f) for f in files]
+    except Exception:
+        pass
+    return {
+        "mcon_ready": _mcon is not None,
+        "con_ready": _con is not None,
+        "matches_event_set": _matches_ready.is_set(),
+        "events_event_set": _events_ready.is_set(),
+        "init_error": _init_error,
+        "ext_dir": _EXT_DIR,
+        "ext_files": ext_files,
+    }
+
+
 frontend = Path(__file__).parent.parent / "frontend"
 if (frontend / "index.html").exists():
     app.mount("/ui", StaticFiles(directory=str(frontend), html=True), name="frontend")
