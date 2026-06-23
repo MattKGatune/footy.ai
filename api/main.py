@@ -21,6 +21,12 @@ app.include_router(timeline.router)
 app.include_router(narrative.router)
 app.include_router(chat.router)
 
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "redis": REDIS_AVAILABLE}
+
+
 frontend = Path(__file__).parent.parent / "frontend"
 if (frontend / "index.html").exists():
     app.mount("/ui", StaticFiles(directory=str(frontend), html=True), name="frontend")
@@ -28,8 +34,3 @@ if (frontend / "index.html").exists():
 client_dist = Path(__file__).parent.parent / "client" / "dist"
 if (client_dist / "index.html").exists():
     app.mount("/", StaticFiles(directory=str(client_dist), html=True), name="client")
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok", "redis": REDIS_AVAILABLE}
