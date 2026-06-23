@@ -51,11 +51,12 @@ _EVENTS_VIEW = f"""
 """
 
 
-def _make_con(memory_limit: str):
+def _make_con(memory_limit: str, single_thread: bool = False):
     import duckdb
     os.makedirs(_EXT_DIR, exist_ok=True)
     con = duckdb.connect(config={"extension_directory": _EXT_DIR})
-    con.execute(f"SET memory_limit='{memory_limit}'; SET threads=1;")
+    thread_setting = "SET threads=1;" if single_thread else ""
+    con.execute(f"SET memory_limit='{memory_limit}'; {thread_setting}")
     try:
         con.execute("LOAD httpfs;")
     except Exception:
@@ -67,13 +68,13 @@ def _make_con(memory_limit: str):
 def _init():
     global _mcon, _con
     try:
-        # Phase 1: fast matches-only connection
-        _mcon = _make_con("80MB")
+        # Phase 1: fast matches-only connection (single thread fine, it's small)
+        _mcon = _make_con("80MB", single_thread=True)
         _mcon.execute(_MATCHES_VIEW)
         _matches_ready.set()
         print("Matches ready.")
 
-        # Phase 2: main connection with both views (events scan is slow)
+        # Phase 2: main connection — full threads so union_by_name scans files in parallel
         _con = _make_con("200MB")
         _con.execute(_MATCHES_VIEW)
 
