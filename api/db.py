@@ -22,6 +22,7 @@ def _init():
     try:
         import duckdb
         _con = duckdb.connect()
+        _con.execute("SET memory_limit='300MB'; SET threads=1;")
         _con.execute("LOAD httpfs;")
         _con.execute(f"""
             CREATE OR REPLACE SECRET r2_secret (
@@ -61,14 +62,6 @@ def _init():
                 if attempt < 4:
                     time.sleep(5 * (attempt + 1))
 
-        # Build valid match IDs after events are ready
-        if _events_ready.is_set():
-            with _lock:
-                result = _con.execute(
-                    "SELECT DISTINCT match_id FROM events_r2 WHERE type_name = 'Shot'"
-                )
-                VALID_MATCH_IDS.update(set(result.df()["match_id"].tolist()))
-            print(f"Found {len(VALID_MATCH_IDS)} matches with shot data.")
 
     except Exception as e:
         print(f"DB initialization failed: {e}")
