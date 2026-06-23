@@ -95,6 +95,20 @@ def _file_list_sql(paths: list[str]) -> str:
     return "[" + ", ".join(f"'{p}'" for p in paths) + "]"
 
 
+def _parse_event_keys(keys: list[str]) -> tuple[dict[int, str], str | None]:
+    """Map match_id -> S3 key and pick the first competition_id=43 key as the
+    schema anchor. Pure (no I/O) so it can be unit-tested."""
+    key_map: dict[int, str] = {}
+    anchor_key: str | None = None
+    for key in keys:
+        m = re.search(r'match_(\d+)', key)
+        if m:
+            key_map[int(m.group(1))] = key
+            if anchor_key is None and 'competition_id=43/' in key:
+                anchor_key = key
+    return key_map, anchor_key
+
+
 def get_event_expr(match_id: int) -> str | None:
     """read_parquet expression over LOCAL files for one match's events, unioned
     with the WC anchor. Downloads the match's event file on demand.
@@ -146,14 +160,7 @@ def _init():
         event_keys = _list_keys('events/')
         print(f"Found {len(event_keys)} event files.")
 
-        key_map: dict[int, str] = {}
-        anchor_key: str | None = None
-        for key in event_keys:
-            m = re.search(r'match_(\d+)', key)
-            if m:
-                key_map[int(m.group(1))] = key
-                if anchor_key is None and 'competition_id=43/' in key:
-                    anchor_key = key
+        key_map, anchor_key = _parse_event_keys(event_keys)
 
         _event_key_map = key_map
         if anchor_key:
@@ -168,7 +175,9 @@ def _init():
         _events_ready.set()
 
 
-threading.Thread(target=_init, daemon=True).start()
+# Skip the background network init when running unit tests (FOOTY_SKIP_INIT=1).
+if os.getenv("FOOTY_SKIP_INIT") != "1":
+    threading.Thread(target=_init, daemon=True).start()
 
 
 def query(sql: str, wait_for_events: bool = False) -> list[dict]:
