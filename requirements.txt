@@ -4,7 +4,7 @@ duckdb==1.5.3
 anthropic==0.98.1
 xgboost==3.3.0
 scikit-learn>=1.4.0
-pandas==2.2.2
+pandas>=2.2.0
 pyarrow==14.0.2
 python-dotenv==1.2.2
 boto3==1.43.31
