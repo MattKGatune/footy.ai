@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from api.db import query, VALID_MATCH_IDS
+from api.db import query
 from api.cache import cached
 
 router = APIRouter(prefix="/matches", tags=["matches"])
@@ -21,4 +21,4 @@ def list_matches():
         FROM matches_r2
         ORDER BY match_id DESC
     """)
-    return [r for r in rows if r["match_id"] in VALID_MATCH_IDS]
+    return rows
