@@ -3,7 +3,7 @@ uvicorn==0.49.0
 duckdb==1.5.3
 anthropic==0.98.1
 xgboost==3.3.0
-scikit-learn>=1.4.0
+scikit-learn==1.4.2
 pandas>=2.2.0
 pyarrow>=14.0.0
 python-dotenv==1.2.2

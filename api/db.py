@@ -21,7 +21,7 @@ def _init():
     try:
         import duckdb
         _con = duckdb.connect()
-        _con.execute("LOAD httpfs;")
+        _con.execute("INSTALL httpfs; LOAD httpfs;")
         _con.execute(f"""
             CREATE OR REPLACE SECRET r2_secret (
                 TYPE S3,
