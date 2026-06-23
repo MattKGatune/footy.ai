@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     pythonVersion: "3.12"
-    buildCommand: pip install -r requirements.txt && python3 -c "import duckdb; c = duckdb.connect(); c.execute('INSTALL httpfs; LOAD httpfs'); print('httpfs pre-installed')"
+    buildCommand: pip install -r requirements.txt && python3 -c "import duckdb, os, pathlib; ext=str(pathlib.Path('.').resolve()/'.duckdb_ext'); os.makedirs(ext,exist_ok=True); c=duckdb.connect(config={'extension_directory':ext}); c.execute('INSTALL httpfs; LOAD httpfs'); print('httpfs installed to',ext)"
     startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: R2_ACCESS_KEY_ID

@@ -6,3 +6,4 @@ statsbomb.db.wal
 __pycache__/
 *.pyc
 client/node_modules/
+.duckdb_ext/
