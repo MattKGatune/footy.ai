@@ -1,0 +1,36 @@
+# VCS / tooling
+.git
+.github
+.gitignore
+.gitattributes
+
+# Secrets — never bake into an image
+.env
+
+# Python caches / test artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+.python-version
+
+# Node — rebuilt inside the frontend stage
+client/node_modules/
+client/dist/
+
+# Notebooks and local analysis data (not needed at runtime)
+*.ipynb
+.ipynb_checkpoints/
+docs/
+tests/
+
+# Large local data / DuckDB scratch (app pulls data from R2 at runtime)
+*.parquet
+statsbomb.db
+statsbomb.db.wal
+.duckdb_ext/
+
+# OS cruft
+.DS_Store
